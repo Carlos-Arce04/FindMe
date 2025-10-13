@@ -1,0 +1,1 @@
+public enum KeyType { Red, Green, Blue, Black }
