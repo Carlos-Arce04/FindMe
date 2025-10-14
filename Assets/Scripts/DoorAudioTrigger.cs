@@ -1,92 +1,75 @@
 using UnityEngine;
 using System.Collections;
 
+[RequireComponent(typeof(AudioSource))]
+[RequireComponent(typeof(Collider))]
 public class DoorAudioTrigger : MonoBehaviour
 {
-    public AudioClip doorAmbience;  // El audio que deseas reproducir
-    private AudioSource audioSource;
-    private bool isPlayerInRange = false;
-    private bool isPlaying = false;
-    private float targetVolume = 1f;  // Volumen final
-    private float fadeSpeed = 0.1f;   // Velocidad del fade
+    public AudioClip doorAmbience;
+    [Range(0f,1f)] public float targetVolume = 0.8f;
+    [Min(0f)] public float fadeInTime = 1.0f;
+    [Min(0f)] public float fadeOutTime = 1.2f;
+    public string playerTag = "Player";
 
-    void Start()
+    AudioSource src;
+    Coroutine currentFade;
+
+    void Awake()
     {
-        // Asegurarnos de que el AudioSource esté presente
-        audioSource = GetComponent<AudioSource>();
+        var col = GetComponent<Collider>();
+        col.isTrigger = true;
 
-        if (audioSource == null)
-        {
-            Debug.LogError("No AudioSource found on " + gameObject.name);
-            return; // Detener el script si no hay AudioSource
-        }
+        src = GetComponent<AudioSource>();
+        if (src == null) src = gameObject.AddComponent<AudioSource>();
 
-        audioSource.clip = doorAmbience;
-        audioSource.loop = true;
-        audioSource.playOnAwake = false;  // No reproducir al inicio
-        audioSource.volume = 0f;  // Inicialmente el volumen es 0
+        src.clip = doorAmbience;
+        src.loop = true;
+        src.playOnAwake = false;
+        src.volume = 0f;
+
+        // Audio 3D recomendado
+        src.spatialBlend = 1f;
+        src.rolloffMode = AudioRolloffMode.Linear;
+        src.minDistance = 2f;
+        src.maxDistance = 18f;
     }
 
-    void Update()
-    {
-        if (audioSource == null) return;
-
-        // Reproducir el audio solo si el jugador está dentro del rango
-        if (isPlayerInRange && !audioSource.isPlaying)
-        {
-            audioSource.Play();
-            StartCoroutine(FadeInAudio());  // Iniciar el fade in
-        }
-        else if (!isPlayerInRange && audioSource.isPlaying)
-        {
-            StartCoroutine(FadeOutAudio());  // Iniciar el fade out cuando el jugador sale del rango
-        }
-    }
-
-    // Detectar cuando el jugador entra en el rango
     void OnTriggerEnter(Collider other)
     {
-        if (other.CompareTag("Player"))
-        {
-            isPlayerInRange = true;
-            Debug.Log("Jugador ha entrado en el rango.");
-        }
+        if (!other.CompareTag(playerTag)) return;
+        if (!src.isPlaying) src.Play();
+        StartFade(to: targetVolume, time: fadeInTime);
     }
 
-    // Detectar cuando el jugador sale del rango
     void OnTriggerExit(Collider other)
     {
-        if (other.CompareTag("Player"))
-        {
-            isPlayerInRange = false;
-            Debug.Log("Jugador ha salido del rango.");
-        }
+        if (!other.CompareTag(playerTag)) return;
+        StartFade(to: 0f, time: fadeOutTime, stopWhenDone: true);
     }
 
-    // Coroutine para el fade in del audio (cuando el jugador entra en rango)
-    private IEnumerator FadeInAudio()
+    void StartFade(float to, float time, bool stopWhenDone = false)
     {
-        float currentVolume = 0f;
-        while (currentVolume < targetVolume)
-        {
-            currentVolume += fadeSpeed * Time.deltaTime;
-            audioSource.volume = currentVolume;
-            yield return null;  // Esperar un frame antes de continuar
-        }
-        audioSource.volume = targetVolume;  // Asegurarse de que alcance el volumen final
+        if (currentFade != null) StopCoroutine(currentFade);
+        currentFade = StartCoroutine(FadeRoutine(to, time, stopWhenDone));
     }
 
-    // Coroutine para el fade out del audio (cuando el jugador sale del rango)
-    private IEnumerator FadeOutAudio()
+    IEnumerator FadeRoutine(float to, float time, bool stopWhenDone)
     {
-        float currentVolume = audioSource.volume;
-        while (currentVolume > 0f)
+        float from = src.volume;
+        float t = 0f;
+        if (time <= 0f) { src.volume = to; yield break; }
+
+        while (t < 1f)
         {
-            currentVolume -= fadeSpeed * Time.deltaTime;
-            audioSource.volume = currentVolume;
-            yield return null;  // Esperar un frame antes de continuar
+            t += Time.deltaTime / time;
+            src.volume = Mathf.Lerp(from, to, t);
+            yield return null;
         }
-        audioSource.Stop();  // Detener el sonido después del fade out
-        audioSource.volume = 0f;  // Asegurarse de que el volumen llegue a 0
+        src.volume = to;
+
+        if (stopWhenDone && Mathf.Approximately(to, 0f))
+            src.Stop();
+
+        currentFade = null;
     }
 }
