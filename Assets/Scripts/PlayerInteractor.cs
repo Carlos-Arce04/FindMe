@@ -20,46 +20,60 @@ public class PlayerInteractor : MonoBehaviour
     }
 
     void Update()
+{
+    UpdateTarget();
+
+    if (currentTarget != null)
     {
-        UpdateTarget();
+        if (!PickupPromptUI.Instance || !PickupPromptUI.Instance.IsLocked)
+            PickupPromptUI.Instance?.Show("Presiona E para recoger batería");
 
-        if (currentTarget != null)
+        if (Input.GetKeyDown(KeyCode.E))
         {
-            if (!PickupPromptUI.Instance || !PickupPromptUI.Instance.IsLocked)
-                PickupPromptUI.Instance?.Show("Presiona E para recoger batería");
-
-            if (Input.GetKeyDown(KeyCode.E))
+            if (inventory != null && inventory.currentBatteries >= inventory.maxBatteries)
             {
-                if (inventory != null && inventory.currentBatteries >= inventory.maxBatteries)
-                {
-                    PickupPromptUI.Instance?.ShowSticky(
-                        "Inventario lleno (máx. 3)", 3f,
-                        "Presiona E para recoger batería"
-                    );
-                    return;
-                }
+                PickupPromptUI.Instance?.ShowSticky(
+                    "Inventario lleno (máx. 3)", 3f,
+                    "Presiona E para recoger batería"
+                );
+                return;
+            }
 
-                bool picked = currentTarget.TryPickup(inventory);
-                if (picked)
+            // Guardamos la información del sonido ANTES de que el objeto se destruya
+            AudioClip soundToPlay = currentTarget.pickupSound;
+            float soundVolume = currentTarget.pickupVolume;
+            Vector3 soundPosition = currentTarget.transform.position;
+
+            bool picked = currentTarget.TryPickup(inventory);
+            if (picked)
+            {
+                // --- LÍNEA AÑADIDA ---
+                // Si la recogida fue exitosa, reproducimos el sonido guardado
+                if (soundToPlay != null)
                 {
-                    PickupPromptUI.Instance?.Hide();
-                    currentTarget = null;
+                    AudioSource.PlayClipAtPoint(soundToPlay, soundPosition, soundVolume);
                 }
-                else
-                {
-                    PickupPromptUI.Instance?.ShowSticky(
-                        "No se pudo recoger", 2f,
-                        "Presiona E para recoger batería"
-                    );
-                }
+                // --- FIN DE LA LÍNEA AÑADIDA ---
+
+                PickupPromptUI.Instance?.Hide();
+                currentTarget = null;
+            }
+            else
+            {
+                PickupPromptUI.Instance?.ShowSticky(
+                    "No se pudo recoger", 2f,
+                    "Presiona E para recoger batería"
+                );
             }
         }
+    }
         else
         {
             if (!PickupPromptUI.Instance || !PickupPromptUI.Instance.IsLocked)
                 PickupPromptUI.Instance?.Hide();
         }
-    }
+        
+    }   
 
     void UpdateTarget()
     {
