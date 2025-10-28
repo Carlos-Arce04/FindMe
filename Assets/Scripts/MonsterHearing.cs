@@ -3,33 +3,35 @@ using UnityEngine;
 [RequireComponent(typeof(MonsterAI))]
 public class MonsterHearing : MonoBehaviour
 {
+    [Range(0.1f, 3f)] public float hearingSensitivity = 1f;
     private MonsterAI monsterAI;
 
-    private void Awake()
-    {
-        monsterAI = GetComponent<MonsterAI>();
-    }
+    void Awake() => monsterAI = GetComponent<MonsterAI>();
 
-    private void Start()
+    void OnEnable()
     {
         if (SoundManager.Instance != null)
-        {
             SoundManager.Instance.RegisterMonster(this);
+    }
+
+    void OnDisable()
+    {
+        if (SoundManager.Instance != null)
+            SoundManager.Instance.UnregisterMonster(this);
+    }
+
+    public void ProcessSound(Vector3 soundPosition, float soundRange)
+    {
+        Debug.Log("PASO 2: Monstruo procesando sonido.");
+        if (monsterAI.currentState == MonsterAI.State.PERSIGUIENDO) return;
+
+        float effectiveRange = soundRange * hearingSensitivity;
+        float distanceToSound = Vector3.Distance(transform.position, soundPosition);
+        Debug.Log($"Distancia al sonido: {distanceToSound} / Rango efectivo: {effectiveRange}");
+
+        if (distanceToSound <= effectiveRange)
+        {
+            monsterAI.GoToInvestigateState(soundPosition);
         }
     }
-
-    // El SoundManager llama a esta función.
-    public void ProcessSound(Vector3 soundPosition, float soundRange)
-{
-    Debug.Log("PASO 2: Monstruo procesando sonido."); // <--- AÑADE ESTA LÍNEA
-    if (monsterAI.currentState == MonsterAI.State.PERSIGUIENDO) return;
-
-    float distanceToSound = Vector3.Distance(transform.position, soundPosition);
-    Debug.Log("Distancia al sonido: " + distanceToSound + " / Rango del sonido: " + soundRange); // <--- AÑADE ESTA LÍNEA
-
-    if (distanceToSound <= soundRange)
-    {
-        monsterAI.GoToInvestigateState(soundPosition);
-    }
-}
 }
