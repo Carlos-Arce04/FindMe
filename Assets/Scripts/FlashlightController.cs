@@ -35,16 +35,16 @@ public class FlashlightController : MonoBehaviour
 
     void Update()
     {
-        // si alguien apagó la linterna por fuera y yo estaba en modo defensivo, salgo
+        // 1) si la linterna está apagada y yo creo que estoy en modo defensivo, me salgo
         if (isDefensive && (flashlight == null || !flashlight.enabled))
         {
             ExitDefensiveMode();
         }
-        // si no tengo luz encendida, NO me dejes activar el modo defensivo
-        // (esto asume que tu otra lógica apaga/prende el light con el mouse)
+
+        // 2) toggle con Q
         if (Input.GetKeyDown(defensiveKey))
         {
-            // si está apagada, no hacemos nada
+            // si está apagada, no dejar activar
             if (flashlight == null || !flashlight.enabled)
                 return;
 
