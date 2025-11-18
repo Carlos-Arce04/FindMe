@@ -3,8 +3,14 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI; // ¡Importante! Para Slider y Image
 using TMPro; // ¡Importante! Para TextMeshProUGUI
 using UnityEditor;
+
 public class GameManager : MonoBehaviour
 {
+    // --- ¡NUEVA VARIABLE PARA EL REINICIO! ---
+    // static hace que esta variable NO se borre al recargar la escena
+    private static bool isRestarting = false; 
+    // -----------------------------------------
+
     [Header("Paneles de UI")]
     public GameObject mainMenuPanel;    
     public GameObject gameHUDPanel;     
@@ -15,11 +21,7 @@ public class GameManager : MonoBehaviour
     public GameObject firstPersonController; 
 
     [Header("Scripts para Pausar")]
-    // Arrastra aquí los scripts de:
-    // 1. Movimiento del jugador (WASD)
-    // 2. Movimiento de la cámara (Mouse Look)
-    // 3. Linterna (FlashlightToggleAndBattery)
-    // 4. Interacción (PlayerInteractor)
+    // Arrastra aquí los scripts de movimiento, cámara, etc.
     public MonoBehaviour[] playerInputScripts;
 
     [Header("Configuración de Ajustes")]
@@ -28,11 +30,11 @@ public class GameManager : MonoBehaviour
     public Slider brightnessSlider;     
     public TextMeshProUGUI brightnessText; // El texto que SÓLO muestra "100%"
     
-    // --- ¡CAMBIO AQUÍ! ---
-    // Arrastra la imagen negra que cubre la pantalla
+    // Arrastra la imagen negra que cubre la pantalla (Filtro de Brillo)
     public Image brightnessFilter; 
-    // --- FIN DEL CAMBIO ---
 
+    // Arrastra aquí tu objeto "BackgroundImage" (la foto de terror del menú)
+    public GameObject menuBackground; 
     
     private string currentSceneName; 
     private bool isPaused = false;
@@ -45,9 +47,21 @@ public class GameManager : MonoBehaviour
 
     void Start()
     {
-        // Empezar el juego con el menú principal
         AudioListener.pause = false;
-        ShowMainMenu();
+
+        // --- LÓGICA DE REINICIO ---
+        if (isRestarting)
+        {
+            // Si venimos de un reinicio, saltamos el menú y empezamos directo
+            StartGame();
+            isRestarting = false; // Reseteamos para la próxima vez
+        }
+        else
+        {
+            // Si es inicio normal, mostramos el menú
+            ShowMainMenu();
+        }
+        // --------------------------
 
         // Inicializar los sliders de ajustes
         if (volumeSlider != null)
@@ -57,7 +71,6 @@ public class GameManager : MonoBehaviour
             UpdateVolumeText(AudioListener.volume);
         }
 
-        // --- ¡CAMBIO AQUÍ! ---
         if (brightnessSlider != null)
         {
             brightnessSlider.onValueChanged.AddListener(SetBrightness);
@@ -67,7 +80,6 @@ public class GameManager : MonoBehaviour
             // Llamar a SetBrightness para aplicar el alfa inicial del filtro
             SetBrightness(defaultBrightness); 
         }
-        // --- FIN DEL CAMBIO ---
     }
 
     void Update()
@@ -95,7 +107,7 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    // --- FUNCIONES PÚBLICAS (para tus botones) ---
+    // --- FUNCIONES PÚBLICAS ---
 
     public void StartGame()
     {
@@ -103,6 +115,9 @@ public class GameManager : MonoBehaviour
         gameHUDPanel.SetActive(true); 
         pauseMenuPanel.SetActive(false); 
         settingsPanel.SetActive(false); 
+
+        // Al jugar, ocultamos la foto para ver el juego 3D
+        if (menuBackground != null) menuBackground.SetActive(false);
 
         firstPersonController.SetActive(true);
         SetPlayerInput(true);
@@ -143,6 +158,11 @@ public class GameManager : MonoBehaviour
     
     public void RestartGame()
     {
+        // --- ¡CAMBIO AQUÍ! ---
+        // Activamos la "memoria" antes de recargar la escena
+        isRestarting = true; 
+        // ---------------------
+
         Time.timeScale = 1f; 
         AudioListener.pause = false; 
         isPaused = false;
@@ -166,11 +186,23 @@ public class GameManager : MonoBehaviour
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
 
+        // --- LÓGICA PARA EL FONDO ---
         if (isPaused) 
         {
+            // Si venimos de la pausa (estamos jugando):
             Time.timeScale = 0f;
             AudioListener.pause = true;
+            
+            // OCULTAMOS la foto para ver el juego de fondo
+            if (menuBackground != null) menuBackground.SetActive(false);
         }
+        else 
+        {
+            // Si venimos del menú principal (no estamos jugando):
+            // MOSTRAMOS la foto para no ver el fondo vacío
+            if (menuBackground != null) menuBackground.SetActive(true);
+        }
+        // ----------------------------
     }
 
     public void HideSettings()
@@ -187,7 +219,7 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    // --- FUNCIONES INTERNAS (Privadas) ---
+    // --- FUNCIONES INTERNAS ---
 
     private void PauseGame()
     {
@@ -209,6 +241,9 @@ public class GameManager : MonoBehaviour
         pauseMenuPanel.SetActive(false);
         settingsPanel.SetActive(false); 
 
+        // Al volver al menú, activamos la foto
+        if (menuBackground != null) menuBackground.SetActive(true);
+
         firstPersonController.SetActive(false);
         SetPlayerInput(false);
 
@@ -227,7 +262,7 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    // --- FUNCIONES DE AJUSTES (llamadas por los Sliders) ---
+    // --- AJUSTES ---
 
     public void SetVolume(float volume)
     {
@@ -239,15 +274,10 @@ public class GameManager : MonoBehaviour
     {
         if (volumeText != null)
         {
-            // --- ¡CAMBIO AQUÍ! ---
-            // Solo muestra el porcentaje
             volumeText.text = Mathf.Round(volume * 100) + "%";
-            // --- FIN DEL CAMBIO ---
         }
     }
 
-    // --- ¡CAMBIO AQUÍ! ---
-    // Esta función ahora controla el alfa del filtro negro
     public void SetBrightness(float brightness)
     {
         // El slider va de 0 (oscuro) a 1 (normal).
@@ -274,16 +304,13 @@ public class GameManager : MonoBehaviour
         // Actualizamos el texto del porcentaje
         UpdateBrightnessText(brightness);
     }
-    // --- FIN DEL CAMBIO ---
 
     private void UpdateBrightnessText(float brightness)
     {
         if (brightnessText != null)
         {
-            // --- ¡CAMBIO AQUÍ! ---
             // Solo muestra el porcentaje
             brightnessText.text = Mathf.Round(brightness * 100) + "%";
-            // --- FIN DEL CAMBIO ---
         }
     }
 }
