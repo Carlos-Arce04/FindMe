@@ -21,14 +21,14 @@ public class FlashlightToggleAndBattery : MonoBehaviour
     public float microBlinkChancePerSec = 0.7f;
     public Vector2 microBlinkDuration = new Vector2(0.03f, 0.08f);
 
+    // NUEVO: Variable para bloquear el control del jugador
+    [HideInInspector] public bool isLocked = false; 
+
     float _microBlinkTimer = 0f;
 
     public event Action<float, float> OnBatteryChanged;
 
-    // <- el controller va a leer esto
     public bool IsFlashlightOn => flashlight != null && flashlight.enabled;
-
-    // <- PARA BatteryInventory
     public float ChargePercent01 => maxCharge <= 0f ? 0f : currentCharge / maxCharge;
     public bool IsFull => currentCharge >= maxCharge - 0.001f;
 
@@ -40,7 +40,8 @@ public class FlashlightToggleAndBattery : MonoBehaviour
 
     void Update()
     {
-        if (Input.GetMouseButtonDown(1))
+        // MODIFICADO: Ahora verificamos si NO está bloqueada (!isLocked) antes de permitir encender/apagar
+        if (Input.GetMouseButtonDown(1) && !isLocked)
         {
             TryToggle();
         }
@@ -66,7 +67,11 @@ public class FlashlightToggleAndBattery : MonoBehaviour
             NotifyUI();
         }
 
-        ApplyFlicker();
+        // El parpadeo por batería baja solo ocurre si NO estamos bloqueados por un evento
+        if (!isLocked) 
+        {
+            ApplyFlicker();
+        }
     }
 
     public void AddCharge(float amount)
@@ -79,7 +84,6 @@ public class FlashlightToggleAndBattery : MonoBehaviour
     void TryToggle()
     {
         if (flashlight == null) return;
-
         if (!flashlight.enabled && currentCharge <= 0f) return;
 
         flashlight.enabled = !flashlight.enabled;
@@ -101,7 +105,7 @@ public class FlashlightToggleAndBattery : MonoBehaviour
 
         if (!low)
         {
-            flashlight.intensity = 1.5f;
+            flashlight.intensity = 1.5f; // Asumiendo intensidad base
             return;
         }
 
