@@ -6,10 +6,9 @@ using UnityEditor;
 
 public class GameManager : MonoBehaviour
 {
-    // --- ¡NUEVA VARIABLE PARA EL REINICIO! ---
-    // static hace que esta variable NO se borre al recargar la escena
+    // --- VARIABLE DE REINICIO (Estática) ---
     private static bool isRestarting = false; 
-    // -----------------------------------------
+    // ---------------------------------------
 
     [Header("Paneles de UI")]
     public GameObject mainMenuPanel;    
@@ -19,6 +18,11 @@ public class GameManager : MonoBehaviour
 
     [Header("Control del Jugador")]
     public GameObject firstPersonController; 
+
+    // --- ¡NUEVO! ---
+    [Header("Control del Enemigo")]
+    public GameObject monster; // Arrastra aquí a tu monstruo
+    // ----------------
 
     [Header("Scripts para Pausar")]
     // Arrastra aquí los scripts de movimiento, cámara, etc.
@@ -122,6 +126,11 @@ public class GameManager : MonoBehaviour
         firstPersonController.SetActive(true);
         SetPlayerInput(true);
 
+        // --- ¡NUEVO! ---
+        // Liberamos al monstruo para que empiece a cazar
+        if (monster != null) monster.SetActive(true);
+        // ----------------
+
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
         isPaused = false;
@@ -158,10 +167,8 @@ public class GameManager : MonoBehaviour
     
     public void RestartGame()
     {
-        // --- ¡CAMBIO AQUÍ! ---
         // Activamos la "memoria" antes de recargar la escena
         isRestarting = true; 
-        // ---------------------
 
         Time.timeScale = 1f; 
         AudioListener.pause = false; 
@@ -246,6 +253,11 @@ public class GameManager : MonoBehaviour
 
         firstPersonController.SetActive(false);
         SetPlayerInput(false);
+
+        // --- ¡NUEVO! ---
+        // Mantenemos al monstruo apagado/dormido en el menú
+        if (monster != null) monster.SetActive(false);
+        // ----------------
 
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
