@@ -38,32 +38,56 @@ public class KeyInteraction : MonoBehaviour
     void Update()
     {
         RaycastHit hit;
-        
+
         bool successfulHit = Physics.SphereCast(
-            playerCamera.transform.position, 
-            interactionRadius, 
-            playerCamera.transform.forward, 
-            out hit, 
+            playerCamera.transform.position,
+            interactionRadius,
+            playerCamera.transform.forward,
+            out hit,
             interactionDistance
         );
 
-        if (successfulHit && hit.collider.CompareTag("Key"))
+        if (successfulHit)
         {
+            bool isKey  = hit.collider.CompareTag("Key");
+            bool isDoll = hit.collider.CompareTag("Doll");
+
+            // Mostrar u ocultar el prompt "E"
             if (pickupPromptText != null)
             {
-                pickupPromptText.gameObject.SetActive(true);
+                pickupPromptText.gameObject.SetActive(isKey || isDoll);
             }
 
             if (Input.GetKeyDown(interactionKey))
             {
-                KeyItem key = hit.collider.GetComponent<KeyItem>();
-                if (keyInventory.AddKey(key))
+                // --- RECOGER LLAVE ---
+                if (isKey)
                 {
-                    if (keyPickupSound != null)
+                    KeyItem key = hit.collider.GetComponent<KeyItem>();
+                    if (key != null && keyInventory.AddKey(key))
                     {
-                        AudioSource.PlayClipAtPoint(keyPickupSound, hit.transform.position, keyPickupVolume);
-                    }
+                        // Progreso de llaves
+                        GameProgressManager.Instance?.RegisterKeyCollected();
 
+                        if (keyPickupSound != null)
+                        {
+                            AudioSource.PlayClipAtPoint(
+                                keyPickupSound,
+                                hit.transform.position,
+                                keyPickupVolume
+                            );
+                        }
+
+                        Destroy(hit.collider.gameObject);
+                    }
+                }
+                // --- RECOGER MUÑECO ---
+                else if (isDoll)
+                {
+                    // Avisar al sistema de progreso que tomamos el muñeco
+                    GameProgressManager.Instance?.RegisterPorcelainDollCollected();
+
+                    // Aquí podrías agregarlo a un inventario si luego lo necesitas
                     Destroy(hit.collider.gameObject);
                 }
             }
