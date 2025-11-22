@@ -3,7 +3,7 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using TMPro;
 using UnityEditor;
-using UnityEngine.Video; // Tu adición para el video
+using UnityEngine.Video; // Para tu funcionalidad de video
 
 public class GameManager : MonoBehaviour
 {
@@ -38,7 +38,7 @@ public class GameManager : MonoBehaviour
     [Header("Video Setup")]
     public GameObject videoScreen;
     private VideoPlayer videoPlayer;
-    private RawImage videoRawImage;
+    private RawImage videoRawImage; // Para controlar visibilidad del video
     // ------------------------------
 
     // --- VARIABLES DE LA IA DEL MONSTRUO (Tu compañero) ---
@@ -75,18 +75,18 @@ public class GameManager : MonoBehaviour
     {
         currentSceneName = SceneManager.GetActiveScene().name;
 
-        // --- LÓGICA DE TU VIDEO ---
+        // --- LÓGICA DE VIDEO ---
         if (videoScreen != null)
         {
             videoPlayer = videoScreen.GetComponent<VideoPlayer>();
-            videoRawImage = videoScreen.GetComponent<RawImage>();
+            // Es necesario para el control de visibilidad en el menú
+            videoRawImage = videoScreen.GetComponent<RawImage>(); 
         }
         // ---------------------------
 
-        // --- LÓGICA DE IA DE TU COMPAÑERO ---
+        // --- LÓGICA DE IA ---
         if (monster != null)
         {
-            // Nota: Aquí asumimos que los scripts 'MonsterAI', 'MonsterVisionCone', y 'MonsterHearing' existen.
             if (monsterAI == null)
                 monsterAI = monster.GetComponent<MonsterAI>();
 
@@ -106,17 +106,19 @@ public class GameManager : MonoBehaviour
         if (isRestarting)
         {
             isRestarting = false;
-            // Usamos tu función para empezar el juego después del reinicio
+            // Usamos la función para empezar el juego después del reinicio
             LoadGameLogic(); 
         }
         else
         {
             ShowMainMenu();
 
-            // --- TRUCO DE PRE-CARGA DE VIDEO (Tu adición) ---
+            // --- TRUCO DE PRE-CARGA DE VIDEO ---
             if (videoPlayer != null)
             {
+                // El objeto debe estar activo para que el VideoPlayer prepare el clip
                 videoScreen.SetActive(true); 
+                // Pero la imagen RawImage debe estar desactivada para que no se vea en el menú
                 if (videoRawImage != null) videoRawImage.enabled = false;
                 videoPlayer.Prepare();
             }
@@ -139,32 +141,36 @@ public class GameManager : MonoBehaviour
             SetBrightness(defaultBrightness);
         }
 
-        // --- Inicialización de sliders de IA (Tu compañero) ---
+        // --- Inicialización de sliders de IA ---
         if (speedSlider != null && monsterAI != null)
         {
             speedSlider.onValueChanged.AddListener(SetMonsterSpeed);
-            speedSlider.value = monsterAI.MovementSpeedMultiplier;
+            // Asumiendo que esta propiedad existe en MonsterAI
+            speedSlider.value = monsterAI.MovementSpeedMultiplier; 
             UpdateSpeedText(speedSlider.value);
         }
 
         if (visionSlider != null && monsterVision != null)
         {
             visionSlider.onValueChanged.AddListener(SetMonsterVisionRange);
-            visionSlider.value = monsterVision.VisionRange;
+            // Asumiendo que esta propiedad existe en MonsterVisionCone
+            visionSlider.value = monsterVision.VisionRange; 
             UpdateVisionText(visionSlider.value);
         }
 
         if (hearingSlider != null && monsterHearing != null)
         {
             hearingSlider.onValueChanged.AddListener(SetMonsterHearingSensitivity);
-            hearingSlider.value = monsterHearing.HearingSensitivity;
+            // Asumiendo que esta propiedad existe en MonsterHearing
+            hearingSlider.value = monsterHearing.HearingSensitivity; 
             UpdateHearingText(hearingSlider.value);
         }
 
         if (reactionSlider != null && monsterAI != null)
         {
             reactionSlider.onValueChanged.AddListener(SetMonsterReactionTime);
-            reactionSlider.value = monsterAI.ReactionTime;
+            // Asumiendo que esta propiedad existe en MonsterAI
+            reactionSlider.value = monsterAI.ReactionTime; 
             UpdateReactionText(reactionSlider.value);
         }
         // -------------------------------------------------------
@@ -172,7 +178,7 @@ public class GameManager : MonoBehaviour
 
     void Update()
     {
-        // Lógica de ESCAPE (igual en ambas versiones)
+        // Lógica de ESCAPE para Pausa/Ajustes
         if (firstPersonController.activeSelf && !settingsPanel.activeSelf)
         {
             if (Input.GetKeyDown(KeyCode.Escape))
@@ -194,13 +200,13 @@ public class GameManager : MonoBehaviour
         mainMenuPanel.SetActive(false);
         settingsPanel.SetActive(false);
 
-        // --- LÓGICA DE TU VIDEO (Se reproduce al iniciar) ---
+        // --- LÓGICA DE VIDEO (Se reproduce al iniciar) ---
         if (videoPlayer != null && videoScreen != null && videoPlayer.clip != null)
         {
             if (menuBackground != null) menuBackground.SetActive(false);
             
             videoScreen.SetActive(true);
-            if (videoRawImage != null) videoRawImage.enabled = true;
+            if (videoRawImage != null) videoRawImage.enabled = true; // ¡Mostramos la imagen del video!
             
             videoPlayer.loopPointReached += OnVideoFinished;
             videoPlayer.Play();
@@ -211,7 +217,6 @@ public class GameManager : MonoBehaviour
             Debug.LogWarning("No hay VideoPlayer o clip, iniciando juego directo.");
             LoadGameLogic();
         }
-        // ---------------------------------------------------
     }
 
     public void QuitGame()
@@ -262,13 +267,15 @@ public class GameManager : MonoBehaviour
 
         if (isPaused)
         {
+            // Si venimos de la pausa (el juego está corriendo)
             Time.timeScale = 0f;
             AudioListener.pause = true;
-            if (menuBackground != null) menuBackground.SetActive(false);
+            if (menuBackground != null) menuBackground.SetActive(false); // Oculta el fondo para ver el juego congelado
         }
         else
         {
-            if (menuBackground != null) menuBackground.SetActive(true);
+            // Si venimos del menú principal
+            if (menuBackground != null) menuBackground.SetActive(true); // Muestra el fondo
         }
     }
 
@@ -278,8 +285,9 @@ public class GameManager : MonoBehaviour
         if (isPaused) PauseGame();
         else ShowMainMenu();
     }
+    
+    // --- FUNCIONES INTERNAS ---
 
-    // --- FUNCIONES INTERNAS DE VIDEO (Tus adiciones) ---
     private void OnVideoFinished(VideoPlayer vp)
     {
         vp.loopPointReached -= OnVideoFinished;
@@ -288,8 +296,7 @@ public class GameManager : MonoBehaviour
 
     private void LoadGameLogic()
     {
-        // Esta función es necesaria para iniciar el juego después de que el video termine.
-
+        // 1. Ocultar Menús
         mainMenuPanel.SetActive(false);
         settingsPanel.SetActive(false);
         if (menuBackground != null) menuBackground.SetActive(false);
@@ -297,20 +304,22 @@ public class GameManager : MonoBehaviour
         // Apagamos completamente el video al terminar el juego
         if (videoScreen != null) videoScreen.SetActive(false); 
 
+        // 2. Mostrar HUD y Ocultar Pausa
         gameHUDPanel.SetActive(true);
         pauseMenuPanel.SetActive(false);
 
+        // 3. Activar Juego
         firstPersonController.SetActive(true);
         SetPlayerInput(true);
         if (monster != null) monster.SetActive(true);
 
+        // 4. Estado de Juego
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
         isPaused = false;
         Time.timeScale = 1f;
         AudioListener.pause = false;
     }
-    // ----------------------------------------------------
 
     private void PauseGame()
     {
@@ -335,8 +344,8 @@ public class GameManager : MonoBehaviour
         // --- LÓGICA DE TU VIDEO (asegura que el video esté oculto pero activo para pre-carga) ---
         if (videoScreen != null)
         {
-            videoScreen.SetActive(true); 
-            if (videoRawImage != null) videoRawImage.enabled = false; 
+            videoScreen.SetActive(true); // Objeto ON
+            if (videoRawImage != null) videoRawImage.enabled = false; // Imagen OFF (Oculto)
         }
         // --------------------------------------------------------------------------------------
 
@@ -356,7 +365,7 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    // --- AJUSTES AUDIO / BRILLO (Funciones de ambas versiones) ---
+    // --- AJUSTES AUDIO / BRILLO ---
 
     public void SetVolume(float volume)
     {
@@ -393,7 +402,6 @@ public class GameManager : MonoBehaviour
     public void SetMonsterSpeed(float multiplier)
     {
         if (monsterAI != null)
-            // Asumo que tu compañero implementó este método en MonsterAI
             monsterAI.SetMovementSpeedMultiplier(multiplier); 
 
         UpdateSpeedText(multiplier);
@@ -408,7 +416,6 @@ public class GameManager : MonoBehaviour
     public void SetMonsterVisionRange(float range)
     {
         if (monsterVision != null)
-            // Asumo que tu compañero implementó este método en MonsterVisionCone
             monsterVision.SetVisionRange(range); 
 
         UpdateVisionText(range);
@@ -417,13 +424,13 @@ public class GameManager : MonoBehaviour
     private void UpdateVisionText(float range)
     {
         if (visionText != null)
+            // Muestra el rango redondeado con 'u' de unidades
             visionText.text = Mathf.Round(range).ToString("0") + " u";
     }
 
     public void SetMonsterHearingSensitivity(float value)
     {
         if (monsterHearing != null)
-            // Asumo que tu compañero implementó este método en MonsterHearing
             monsterHearing.SetHearingSensitivity(value); 
 
         UpdateHearingText(value);
@@ -441,7 +448,6 @@ public class GameManager : MonoBehaviour
     public void SetMonsterReactionTime(float seconds)
     {
         if (monsterAI != null)
-            // Asumo que tu compañero implementó este método en MonsterAI
             monsterAI.SetReactionTime(seconds); 
 
         UpdateReactionText(seconds);
@@ -450,6 +456,7 @@ public class GameManager : MonoBehaviour
     private void UpdateReactionText(float seconds)
     {
         if (reactionText != null)
+            // Muestra el tiempo en segundos
             reactionText.text = seconds.ToString("0.00") + " s";
     }
 }
