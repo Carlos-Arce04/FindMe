@@ -3,6 +3,7 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using TMPro;
 using UnityEditor;
+using UnityEngine.Video; // Tu adición para el video
 
 public class GameManager : MonoBehaviour
 {
@@ -14,26 +15,33 @@ public class GameManager : MonoBehaviour
     public GameObject mainMenuPanel;
     public GameObject gameHUDPanel;
     public GameObject pauseMenuPanel;
-    public GameObject settingsPanel;    // Panel de Ajustes
+    public GameObject settingsPanel;
 
     [Header("Control del Jugador")]
     public GameObject firstPersonController;
 
     [Header("Control del Enemigo")]
-    public GameObject monster; // Arrastra aquí a tu monstruo
+    public GameObject monster;
 
     [Header("Scripts para Pausar")]
-    // Arrastra aquí los scripts de movimiento, cámara, etc.
     public MonoBehaviour[] playerInputScripts;
 
     [Header("Configuración de Ajustes - Audio / Pantalla")]
     public Slider volumeSlider;
-    public TextMeshProUGUI volumeText;        // Texto que muestra "100%"
+    public TextMeshProUGUI volumeText;
     public Slider brightnessSlider;
-    public TextMeshProUGUI brightnessText;    // Texto que muestra "100%"
-    public Image brightnessFilter;            // Imagen negra para el filtro de brillo
-    public GameObject menuBackground;         // Imagen de fondo del menú
+    public TextMeshProUGUI brightnessText;
+    public Image brightnessFilter;
+    public GameObject menuBackground;
 
+    // --- TUS VARIABLES DE VIDEO ---
+    [Header("Video Setup")]
+    public GameObject videoScreen;
+    private VideoPlayer videoPlayer;
+    private RawImage videoRawImage;
+    // ------------------------------
+
+    // --- VARIABLES DE LA IA DEL MONSTRUO (Tu compañero) ---
     [Header("Referencias de IA / Monstruo")]
     [Tooltip("Referencia al script MonsterAI del enemigo.")]
     public MonsterAI monsterAI;
@@ -58,18 +66,27 @@ public class GameManager : MonoBehaviour
     [Tooltip("Slider para el tiempo de reacción del monstruo.")]
     public Slider reactionSlider;
     public TextMeshProUGUI reactionText;
+    // --------------------------------------------------------
 
     private string currentSceneName;
     private bool isPaused = false;
 
     void Awake()
     {
-        // Guarda el nombre de la escena actual para poder reiniciarla
         currentSceneName = SceneManager.GetActiveScene().name;
 
-        // Intentar autoconectar componentes de la IA si no se asignaron
+        // --- LÓGICA DE TU VIDEO ---
+        if (videoScreen != null)
+        {
+            videoPlayer = videoScreen.GetComponent<VideoPlayer>();
+            videoRawImage = videoScreen.GetComponent<RawImage>();
+        }
+        // ---------------------------
+
+        // --- LÓGICA DE IA DE TU COMPAÑERO ---
         if (monster != null)
         {
+            // Nota: Aquí asumimos que los scripts 'MonsterAI', 'MonsterVisionCone', y 'MonsterHearing' existen.
             if (monsterAI == null)
                 monsterAI = monster.GetComponent<MonsterAI>();
 
@@ -79,25 +96,32 @@ public class GameManager : MonoBehaviour
             if (monsterHearing == null)
                 monsterHearing = monster.GetComponent<MonsterHearing>();
         }
+        // ------------------------------------
     }
 
     void Start()
     {
         AudioListener.pause = false;
 
-        // --- LÓGICA DE REINICIO ---
         if (isRestarting)
         {
-            // Si venimos de un reinicio, saltamos el menú y empezamos directo
-            StartGame();
-            isRestarting = false; // Reseteamos para la próxima vez
+            isRestarting = false;
+            // Usamos tu función para empezar el juego después del reinicio
+            LoadGameLogic(); 
         }
         else
         {
-            // Si es inicio normal, mostramos el menú
             ShowMainMenu();
+
+            // --- TRUCO DE PRE-CARGA DE VIDEO (Tu adición) ---
+            if (videoPlayer != null)
+            {
+                videoScreen.SetActive(true); 
+                if (videoRawImage != null) videoRawImage.enabled = false;
+                videoPlayer.Prepare();
+            }
+            // ------------------------------------------------
         }
-        // --------------------------
 
         // Inicializar sliders de volumen / brillo
         if (volumeSlider != null)
@@ -115,9 +139,7 @@ public class GameManager : MonoBehaviour
             SetBrightness(defaultBrightness);
         }
 
-        // --- Inicialización de sliders de IA ---
-
-        // Velocidad de movimiento (multiplicador)
+        // --- Inicialización de sliders de IA (Tu compañero) ---
         if (speedSlider != null && monsterAI != null)
         {
             speedSlider.onValueChanged.AddListener(SetMonsterSpeed);
@@ -125,7 +147,6 @@ public class GameManager : MonoBehaviour
             UpdateSpeedText(speedSlider.value);
         }
 
-        // Rango de visión
         if (visionSlider != null && monsterVision != null)
         {
             visionSlider.onValueChanged.AddListener(SetMonsterVisionRange);
@@ -133,7 +154,6 @@ public class GameManager : MonoBehaviour
             UpdateVisionText(visionSlider.value);
         }
 
-        // Sensibilidad auditiva
         if (hearingSlider != null && monsterHearing != null)
         {
             hearingSlider.onValueChanged.AddListener(SetMonsterHearingSensitivity);
@@ -141,32 +161,28 @@ public class GameManager : MonoBehaviour
             UpdateHearingText(hearingSlider.value);
         }
 
-        // Tiempo de reacción
         if (reactionSlider != null && monsterAI != null)
         {
             reactionSlider.onValueChanged.AddListener(SetMonsterReactionTime);
             reactionSlider.value = monsterAI.ReactionTime;
             UpdateReactionText(reactionSlider.value);
         }
+        // -------------------------------------------------------
     }
 
     void Update()
     {
-        // Si el jugador está activo Y no estamos en el menú de ajustes
+        // Lógica de ESCAPE (igual en ambas versiones)
         if (firstPersonController.activeSelf && !settingsPanel.activeSelf)
         {
             if (Input.GetKeyDown(KeyCode.Escape))
             {
-                if (isPaused)
-                    ResumeGame();
-                else
-                    PauseGame();
+                if (isPaused) ResumeGame();
+                else PauseGame();
             }
         }
-        // Si estamos en el menú de ajustes
         else if (settingsPanel.activeSelf && Input.GetKeyDown(KeyCode.Escape))
         {
-            // La tecla Escape ahora debe "Volver"
             HideSettings();
         }
     }
@@ -176,35 +192,36 @@ public class GameManager : MonoBehaviour
     public void StartGame()
     {
         mainMenuPanel.SetActive(false);
-        gameHUDPanel.SetActive(true);
-        pauseMenuPanel.SetActive(false);
         settingsPanel.SetActive(false);
 
-        // Al jugar, ocultamos la foto para ver el juego 3D
-        if (menuBackground != null) menuBackground.SetActive(false);
-
-        firstPersonController.SetActive(true);
-        SetPlayerInput(true);
-
-        // Liberamos al monstruo para que empiece a cazar
-        if (monster != null) monster.SetActive(true);
-
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
-        isPaused = false;
-        Time.timeScale = 1f;
-        AudioListener.pause = false;
+        // --- LÓGICA DE TU VIDEO (Se reproduce al iniciar) ---
+        if (videoPlayer != null && videoScreen != null && videoPlayer.clip != null)
+        {
+            if (menuBackground != null) menuBackground.SetActive(false);
+            
+            videoScreen.SetActive(true);
+            if (videoRawImage != null) videoRawImage.enabled = true;
+            
+            videoPlayer.loopPointReached += OnVideoFinished;
+            videoPlayer.Play();
+        }
+        else
+        {
+            // Si no hay video, se salta a la lógica de inicio de juego
+            Debug.LogWarning("No hay VideoPlayer o clip, iniciando juego directo.");
+            LoadGameLogic();
+        }
+        // ---------------------------------------------------
     }
 
     public void QuitGame()
     {
         Debug.Log("Saliendo del juego...");
-
-#if UNITY_EDITOR
+        #if UNITY_EDITOR
         UnityEditor.EditorApplication.isPlaying = false;
-#else
+        #else
         Application.Quit();
-#endif
+        #endif
     }
 
     public void ResumeGame()
@@ -212,19 +229,15 @@ public class GameManager : MonoBehaviour
         pauseMenuPanel.SetActive(false);
         Time.timeScale = 1f;
         isPaused = false;
-
         AudioListener.pause = false;
         SetPlayerInput(true);
-
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
     }
 
     public void RestartGame()
     {
-        // Activamos la "memoria" antes de recargar la escena
         isRestarting = true;
-
         Time.timeScale = 1f;
         AudioListener.pause = false;
         isPaused = false;
@@ -244,54 +257,68 @@ public class GameManager : MonoBehaviour
         mainMenuPanel.SetActive(false);
         pauseMenuPanel.SetActive(false);
         settingsPanel.SetActive(true);
-
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
 
-        // --- LÓGICA PARA EL FONDO ---
         if (isPaused)
         {
-            // Si venimos de la pausa (estamos jugando):
             Time.timeScale = 0f;
             AudioListener.pause = true;
-
-            // OCULTAMOS la foto para ver el juego de fondo
             if (menuBackground != null) menuBackground.SetActive(false);
         }
         else
         {
-            // Si venimos del menú principal (no estamos jugando):
-            // MOSTRAMOS la foto para no ver el fondo vacío
             if (menuBackground != null) menuBackground.SetActive(true);
         }
-        // ----------------------------
     }
 
     public void HideSettings()
     {
         settingsPanel.SetActive(false);
-
-        if (isPaused)
-        {
-            PauseGame();
-        }
-        else
-        {
-            ShowMainMenu();
-        }
+        if (isPaused) PauseGame();
+        else ShowMainMenu();
     }
 
-    // --- FUNCIONES INTERNAS ---
+    // --- FUNCIONES INTERNAS DE VIDEO (Tus adiciones) ---
+    private void OnVideoFinished(VideoPlayer vp)
+    {
+        vp.loopPointReached -= OnVideoFinished;
+        LoadGameLogic();
+    }
+
+    private void LoadGameLogic()
+    {
+        // Esta función es necesaria para iniciar el juego después de que el video termine.
+
+        mainMenuPanel.SetActive(false);
+        settingsPanel.SetActive(false);
+        if (menuBackground != null) menuBackground.SetActive(false);
+        
+        // Apagamos completamente el video al terminar el juego
+        if (videoScreen != null) videoScreen.SetActive(false); 
+
+        gameHUDPanel.SetActive(true);
+        pauseMenuPanel.SetActive(false);
+
+        firstPersonController.SetActive(true);
+        SetPlayerInput(true);
+        if (monster != null) monster.SetActive(true);
+
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+        isPaused = false;
+        Time.timeScale = 1f;
+        AudioListener.pause = false;
+    }
+    // ----------------------------------------------------
 
     private void PauseGame()
     {
         pauseMenuPanel.SetActive(true);
         Time.timeScale = 0f;
         isPaused = true;
-
         AudioListener.pause = true;
         SetPlayerInput(false);
-
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
     }
@@ -303,13 +330,18 @@ public class GameManager : MonoBehaviour
         pauseMenuPanel.SetActive(false);
         settingsPanel.SetActive(false);
 
-        // Al volver al menú, activamos la foto
         if (menuBackground != null) menuBackground.SetActive(true);
+        
+        // --- LÓGICA DE TU VIDEO (asegura que el video esté oculto pero activo para pre-carga) ---
+        if (videoScreen != null)
+        {
+            videoScreen.SetActive(true); 
+            if (videoRawImage != null) videoRawImage.enabled = false; 
+        }
+        // --------------------------------------------------------------------------------------
 
         firstPersonController.SetActive(false);
         SetPlayerInput(false);
-
-        // Mantenemos al monstruo apagado/dormido en el menú
         if (monster != null) monster.SetActive(false);
 
         Cursor.lockState = CursorLockMode.None;
@@ -320,12 +352,11 @@ public class GameManager : MonoBehaviour
     {
         foreach (MonoBehaviour script in playerInputScripts)
         {
-            if (script != null)
-                script.enabled = enabled;
+            if (script != null) script.enabled = enabled;
         }
     }
 
-    // --- AJUSTES AUDIO / BRILLO ---
+    // --- AJUSTES AUDIO / BRILLO (Funciones de ambas versiones) ---
 
     public void SetVolume(float volume)
     {
@@ -335,19 +366,12 @@ public class GameManager : MonoBehaviour
 
     private void UpdateVolumeText(float volume)
     {
-        if (volumeText != null)
-            volumeText.text = Mathf.Round(volume * 100) + "%";
+        if (volumeText != null) volumeText.text = Mathf.Round(volume * 100) + "%";
     }
 
     public void SetBrightness(float brightness)
     {
-        // El slider va de 0 (oscuro) a 1 (normal).
-        // maxAlpha define qué tan oscuro será el mínimo. 0.8 = 80% negro.
         float maxAlpha = 0.8f;
-
-        // Invertimos el valor:
-        // brightness 1 -> alpha 0 (claro)
-        // brightness 0 -> alpha 0.8 (oscuro)
         float targetAlpha = (1.0f - brightness) * maxAlpha;
 
         if (brightnessFilter != null)
@@ -356,22 +380,21 @@ public class GameManager : MonoBehaviour
             filterColor.a = targetAlpha;
             brightnessFilter.color = filterColor;
         }
-
         UpdateBrightnessText(brightness);
     }
 
     private void UpdateBrightnessText(float brightness)
     {
-        if (brightnessText != null)
-            brightnessText.text = Mathf.Round(brightness * 100) + "%";
+        if (brightnessText != null) brightnessText.text = Mathf.Round(brightness * 100) + "%";
     }
 
-    // --- AJUSTES DE IA (LLAMADOS POR SLIDERS) ---
+    // --- AJUSTES DE IA (Tu compañero) ---
 
     public void SetMonsterSpeed(float multiplier)
     {
         if (monsterAI != null)
-            monsterAI.SetMovementSpeedMultiplier(multiplier);
+            // Asumo que tu compañero implementó este método en MonsterAI
+            monsterAI.SetMovementSpeedMultiplier(multiplier); 
 
         UpdateSpeedText(multiplier);
     }
@@ -385,7 +408,8 @@ public class GameManager : MonoBehaviour
     public void SetMonsterVisionRange(float range)
     {
         if (monsterVision != null)
-            monsterVision.SetVisionRange(range);
+            // Asumo que tu compañero implementó este método en MonsterVisionCone
+            monsterVision.SetVisionRange(range); 
 
         UpdateVisionText(range);
     }
@@ -399,7 +423,8 @@ public class GameManager : MonoBehaviour
     public void SetMonsterHearingSensitivity(float value)
     {
         if (monsterHearing != null)
-            monsterHearing.SetHearingSensitivity(value);
+            // Asumo que tu compañero implementó este método en MonsterHearing
+            monsterHearing.SetHearingSensitivity(value); 
 
         UpdateHearingText(value);
     }
@@ -416,7 +441,8 @@ public class GameManager : MonoBehaviour
     public void SetMonsterReactionTime(float seconds)
     {
         if (monsterAI != null)
-            monsterAI.SetReactionTime(seconds);
+            // Asumo que tu compañero implementó este método en MonsterAI
+            monsterAI.SetReactionTime(seconds); 
 
         UpdateReactionText(seconds);
     }
