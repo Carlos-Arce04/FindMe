@@ -7,6 +7,9 @@ public class FlashlightToggleAndBattery : MonoBehaviour
     public Light flashlight;
     public AudioSource audioSource;
 
+    [Header("Bloqueo externo (sustos, cinemáticas, etc.)")]
+    public bool isLocked = false;
+
     [Header("Batería")]
     public float maxCharge = 100f;
     public float currentCharge = 100f;
@@ -40,11 +43,13 @@ public class FlashlightToggleAndBattery : MonoBehaviour
 
     void Update()
     {
-        if (Input.GetMouseButtonDown(1))
+        // 🚫 Si está bloqueada (por susto / cinemática), no aceptamos input del mouse
+        if (!isLocked && Input.GetMouseButtonDown(1))
         {
             TryToggle();
         }
 
+        // El drenaje de batería sigue funcionando si la linterna está encendida
         if (flashlight != null && flashlight.enabled && currentCharge > 0f)
         {
             float drain = drainPerSecond;
@@ -80,6 +85,7 @@ public class FlashlightToggleAndBattery : MonoBehaviour
     {
         if (flashlight == null) return;
 
+        // Aunque llegue aquí por código, respetamos batería
         if (!flashlight.enabled && currentCharge <= 0f) return;
 
         flashlight.enabled = !flashlight.enabled;

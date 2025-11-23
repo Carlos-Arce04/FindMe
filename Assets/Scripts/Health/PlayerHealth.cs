@@ -13,26 +13,33 @@ public class PlayerHealth : MonoBehaviour
     float lastHitTime = -999f;
     bool dead;
 
-    public GameObject gameOverUI;   // ✔ correcto
-    FadeToBlack fade;               // ✔ correcto
+    // UI opcional de Game Over (puede ser null)
+    public GameObject gameOverUI;
+
+    // Fade opcional (puede no existir en la escena)
+    FadeToBlack fade;
 
     void Start()
     {
         currentHealth = maxHealth;
         onHealthChanged?.Invoke(currentHealth, maxHealth);
 
-        // ❗ CORRECCIÓN IMPORTANTE
-        // El campo gameOverUI AHORA YA NO SE BUSCA POR NOMBRE
-        // Se asigna desde el inspector.
+        // Si hay GameOverUI, la apagamos al inicio
         if (gameOverUI != null)
+        {
             gameOverUI.SetActive(false);
+        }
         else
-            Debug.LogError("⚠ No asignaste GameOverUI en el inspector!");
+        {
+            Debug.LogWarning("PlayerHealth: GameOverUI no asignado en el inspector (no se mostrará pantalla de Game Over al morir).");
+        }
 
-        // ✔ buscar el script FadeToBlack en la escena
+        // Buscar FadeToBlack en la escena (si existe)
         fade = FindObjectOfType<FadeToBlack>();
         if (fade == null)
-            Debug.LogError("⚠ No existe FadeToBlack en la escena");
+        {
+            Debug.LogWarning("PlayerHealth: No existe FadeToBlack en la escena (no habrá fade al morir).");
+        }
     }
 
     public void TakeDamage(float amount)
@@ -76,25 +83,25 @@ public class PlayerHealth : MonoBehaviour
         var crouch = GetComponent<Crouch>();
         if (crouch != null) crouch.enabled = false;
 
-        // activar UI de game over
+        // activar UI de game over solo si existe
         if (gameOverUI != null)
+        {
             gameOverUI.SetActive(true);
-        else
-            Debug.LogError("⚠ gameOverUI es NULL");
+        }
 
-        //  iniciar fade
+        // iniciar fade solo si existe
         if (fade != null)
+        {
             yield return StartCoroutine(fade.StartFade());
-        else
-            Debug.LogError("⚠ fade es NULL");
+        }
 
-        //  pausar tiempo
+        // pausar tiempo
         Time.timeScale = 0f;
 
-        //  usar tiempo real para esperar
+        // usar tiempo real para esperar
         yield return new WaitForSecondsRealtime(2.5f);
 
-        //  restaurar tiempo y recargar
+        // restaurar tiempo y recargar
         Time.timeScale = 1f;
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
