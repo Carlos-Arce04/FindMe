@@ -34,3 +34,9 @@ sysinfo.txt
 
 # Gradle cache
 .gradle/
+
+# Assets personales de Justin (no versionar)
+Assets/MonsterMutant 7/
+Assets/Scripts/Sustos/
+Assets/Sounds/Jumpscare.mp3
+Assets/images/
