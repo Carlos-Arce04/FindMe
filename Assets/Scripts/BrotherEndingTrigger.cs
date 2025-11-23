@@ -1,5 +1,6 @@
 using UnityEngine;
 using TMPro;
+using System.Collections;
 
 public class BrotherEndingTrigger : MonoBehaviour
 {
@@ -13,6 +14,9 @@ public class BrotherEndingTrigger : MonoBehaviour
     [Header("UI de fin de juego (HUD)")]
     [SerializeField] private GameObject endGamePanel;
     [SerializeField] private TextMeshProUGUI endGameTitleText;
+
+    [Header("Tiempos")]
+    [SerializeField] private float delayBeforeEndPanel = 2f;
 
     private bool hasTriggered = false;
 
@@ -31,30 +35,35 @@ public class BrotherEndingTrigger : MonoBehaviour
         if (!other.CompareTag(playerTag)) return;
 
         hasTriggered = true;
+        StartCoroutine(EndSequence(other));
+    }
 
-        // Mensaje del hermano en su bocadillo
+    private IEnumerator EndSequence(Collider player)
+    {
+        // 1) Bocadillo del hermano
         if (brotherSpeechCanvas != null)
             brotherSpeechCanvas.gameObject.SetActive(true);
 
         if (brotherSpeechText != null)
             brotherSpeechText.text = "Hermano, ¡me encontraste!";
 
-        // Pantalla de fin de juego en grande
+        // Esperar para que el jugador lo lea
+        yield return new WaitForSeconds(delayBeforeEndPanel);
+
+        // 2) Mostrar panel de FIN DEL JUEGO en el HUD
         if (endGamePanel != null)
             endGamePanel.SetActive(true);
 
         if (endGameTitleText != null)
             endGameTitleText.text = "FIN DEL JUEGO";
 
-        // Opcional: aquí podrías desactivar el movimiento del jugador
-        // var controller = other.GetComponent<FirstPersonController>();
+        // (Opcional) bloquear movimiento
+        // var controller = player.GetComponent<FirstPersonController>();
         // if (controller != null) controller.enabled = false;
 
-        // Mostrar el cursor para que el jugador pueda salir del juego/menú
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
 
-        // Opcional: marcar progreso al 100%
         GameProgressManager.Instance?.CompleteGame();
     }
 }
