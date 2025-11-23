@@ -18,6 +18,19 @@ public class BrotherEndingTrigger : MonoBehaviour
     [Header("Movimiento del hermano")]
     [SerializeField] private BrotherFollowPlayer brotherFollower;
 
+    [Header("Audio")]
+    [Tooltip("AudioSource que está en el niño (3D).")]
+    [SerializeField] private AudioSource brotherAudioSource;
+
+    [Tooltip("Clip de voz: 'BROTHER, YOU FOUND ME!'")]
+    [SerializeField] private AudioClip brotherFoundClip;
+
+    [Tooltip("AudioSource para la voz/efecto del fin del juego (2D, en Canvas o Cámara).")]
+    [SerializeField] private AudioSource endGameAudioSource;
+
+    [Tooltip("Clip de voz: 'END OF THE GAME'")]
+    [SerializeField] private AudioClip endGameClip;
+
     [Header("Tiempos")]
     [SerializeField] private float delayBeforeEndPanel = 2f;
 
@@ -39,7 +52,7 @@ public class BrotherEndingTrigger : MonoBehaviour
 
         hasTriggered = true;
 
-        // 👉 Decirle al niño que empiece a seguir al jugador
+        // Hacer que el hermano camine hacia el jugador
         if (brotherFollower != null)
         {
             brotherFollower.StartFollowing(other.transform);
@@ -55,9 +68,15 @@ public class BrotherEndingTrigger : MonoBehaviour
             brotherSpeechCanvas.gameObject.SetActive(true);
 
         if (brotherSpeechText != null)
-            brotherSpeechText.text = "Hermano, ¡me encontraste!";
+            brotherSpeechText.text = "BROTHER, YOU FOUND ME!";
 
-        // Dejar tiempo para que se mueva un poco y se lea el texto
+        // 🔊 Reproducir voz del hermano
+        if (brotherAudioSource != null && brotherFoundClip != null)
+        {
+            brotherAudioSource.PlayOneShot(brotherFoundClip);
+        }
+
+        // Esperar para que se lea y se escuche bien
         yield return new WaitForSeconds(delayBeforeEndPanel);
 
         // 2) Mostrar panel de FIN DEL JUEGO
@@ -65,7 +84,17 @@ public class BrotherEndingTrigger : MonoBehaviour
             endGamePanel.SetActive(true);
 
         if (endGameTitleText != null)
-            endGameTitleText.text = "FIN DEL JUEGO";
+            endGameTitleText.text = "END OF THE GAME";
+
+        // 🔊 Reproducir voz / efecto de fin del juego
+        if (endGameAudioSource != null && endGameClip != null)
+        {
+            endGameAudioSource.PlayOneShot(endGameClip);
+        }
+
+        // Opcional: bloquear movimiento del jugador aquí
+        // var controller = player.GetComponent<FirstPersonController>();
+        // if (controller != null) controller.enabled = false;
 
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
