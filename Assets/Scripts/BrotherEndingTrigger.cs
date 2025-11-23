@@ -15,6 +15,9 @@ public class BrotherEndingTrigger : MonoBehaviour
     [SerializeField] private GameObject endGamePanel;
     [SerializeField] private TextMeshProUGUI endGameTitleText;
 
+    [Header("Movimiento del hermano")]
+    [SerializeField] private BrotherFollowPlayer brotherFollower;
+
     [Header("Tiempos")]
     [SerializeField] private float delayBeforeEndPanel = 2f;
 
@@ -35,6 +38,13 @@ public class BrotherEndingTrigger : MonoBehaviour
         if (!other.CompareTag(playerTag)) return;
 
         hasTriggered = true;
+
+        // 👉 Decirle al niño que empiece a seguir al jugador
+        if (brotherFollower != null)
+        {
+            brotherFollower.StartFollowing(other.transform);
+        }
+
         StartCoroutine(EndSequence(other));
     }
 
@@ -47,19 +57,15 @@ public class BrotherEndingTrigger : MonoBehaviour
         if (brotherSpeechText != null)
             brotherSpeechText.text = "Hermano, ¡me encontraste!";
 
-        // Esperar para que el jugador lo lea
+        // Dejar tiempo para que se mueva un poco y se lea el texto
         yield return new WaitForSeconds(delayBeforeEndPanel);
 
-        // 2) Mostrar panel de FIN DEL JUEGO en el HUD
+        // 2) Mostrar panel de FIN DEL JUEGO
         if (endGamePanel != null)
             endGamePanel.SetActive(true);
 
         if (endGameTitleText != null)
             endGameTitleText.text = "FIN DEL JUEGO";
-
-        // (Opcional) bloquear movimiento
-        // var controller = player.GetComponent<FirstPersonController>();
-        // if (controller != null) controller.enabled = false;
 
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
