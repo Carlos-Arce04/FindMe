@@ -21,14 +21,14 @@ public class GameManager : MonoBehaviour
 
     // --- ¡NUEVO! ---
     [Header("Control del Enemigo")]
-    public GameObject monster; // Arrastra aquí a tu monstruo
+    public GameObject monster; // Arrastra aquí a tu monstruo (GameObject raíz)
     // ----------------
 
     [Header("Scripts para Pausar")]
     // Arrastra aquí los scripts de movimiento, cámara, etc.
     public MonoBehaviour[] playerInputScripts;
 
-    [Header("Configuración de Ajustes")]
+    [Header("Configuración de Ajustes - Audio / Pantalla")]
     public Slider volumeSlider;         
     public TextMeshProUGUI volumeText;  // El texto que SÓLO muestra "100%"
     public Slider brightnessSlider;     
@@ -40,6 +40,31 @@ public class GameManager : MonoBehaviour
     // Arrastra aquí tu objeto "BackgroundImage" (la foto de terror del menú)
     public GameObject menuBackground; 
     
+    [Header("Referencias de IA / Monstruo")]
+    [Tooltip("Referencia al script MonsterAI del enemigo.")]
+    public MonsterAI monsterAI;
+    [Tooltip("Referencia al script MonsterVisionCone del enemigo (visión).")]
+    public MonsterVisionCone monsterVision;
+    [Tooltip("Referencia al script MonsterHearing del enemigo (oído).")]
+    public MonsterHearing monsterHearing;
+
+    [Header("Ajustes de IA (Sliders en el menú)")]
+    [Tooltip("Slider para la velocidad de movimiento del monstruo (multiplicador).")]
+    public Slider speedSlider;
+    public TextMeshProUGUI speedText;
+
+    [Tooltip("Slider para el rango de visión del monstruo.")]
+    public Slider visionSlider;
+    public TextMeshProUGUI visionText;
+
+    [Tooltip("Slider para la sensibilidad auditiva del monstruo.")]
+    public Slider hearingSlider;
+    public TextMeshProUGUI hearingText;
+
+    [Tooltip("Slider para el tiempo de reacción del monstruo.")]
+    public Slider reactionSlider;
+    public TextMeshProUGUI reactionText;
+
     private string currentSceneName; 
     private bool isPaused = false;
 
@@ -47,6 +72,18 @@ public class GameManager : MonoBehaviour
     {
         // Guarda el nombre de la escena actual para poder reiniciarla
         currentSceneName = SceneManager.GetActiveScene().name;
+
+        // Si no se asignaron las referencias de IA desde el Inspector,
+        // intenta buscarlas en el GameObject del monstruo.
+        if (monster != null)
+        {
+            if (monsterAI == null)
+                monsterAI = monster.GetComponent<MonsterAI>();
+            if (monsterVision == null)
+                monsterVision = monster.GetComponentInChildren<MonsterVisionCone>();
+            if (monsterHearing == null)
+                monsterHearing = monster.GetComponent<MonsterHearing>();
+        }
     }
 
     void Start()
@@ -66,8 +103,8 @@ public class GameManager : MonoBehaviour
             ShowMainMenu();
         }
         // --------------------------
-
-        // Inicializar los sliders de ajustes
+        
+        // Inicializar los sliders de ajustes de audio/pantalla
         if (volumeSlider != null)
         {
             volumeSlider.onValueChanged.AddListener(SetVolume);
@@ -84,6 +121,40 @@ public class GameManager : MonoBehaviour
             // Llamar a SetBrightness para aplicar el alfa inicial del filtro
             SetBrightness(defaultBrightness); 
         }
+
+        // --- Inicialización de sliders de IA ---
+        // Velocidad de movimiento (multiplicador)
+        if (speedSlider != null && monsterAI != null)
+        {
+            speedSlider.onValueChanged.AddListener(SetMonsterSpeed);
+            speedSlider.value = monsterAI.MovementSpeedMultiplier;
+            UpdateSpeedText(speedSlider.value);
+        }
+
+        // Rango de visión
+        if (visionSlider != null && monsterVision != null)
+        {
+            visionSlider.onValueChanged.AddListener(SetMonsterVisionRange);
+            visionSlider.value = monsterVision.VisionRange;
+            UpdateVisionText(visionSlider.value);
+        }
+
+        // Sensibilidad auditiva
+        if (hearingSlider != null && monsterHearing != null)
+        {
+            hearingSlider.onValueChanged.AddListener(SetMonsterHearingSensitivity);
+            hearingSlider.value = monsterHearing.HearingSensitivity;
+            UpdateHearingText(hearingSlider.value);
+        }
+
+        // Tiempo de reacción
+        if (reactionSlider != null && monsterAI != null)
+        {
+            reactionSlider.onValueChanged.AddListener(SetMonsterReactionTime);
+            reactionSlider.value = monsterAI.ReactionTime;
+            UpdateReactionText(reactionSlider.value);
+        }
+        // ---------------------------------------
     }
 
     void Update()
@@ -126,10 +197,8 @@ public class GameManager : MonoBehaviour
         firstPersonController.SetActive(true);
         SetPlayerInput(true);
 
-        // --- ¡NUEVO! ---
         // Liberamos al monstruo para que empiece a cazar
         if (monster != null) monster.SetActive(true);
-        // ----------------
 
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
@@ -254,11 +323,9 @@ public class GameManager : MonoBehaviour
         firstPersonController.SetActive(false);
         SetPlayerInput(false);
 
-        // --- ¡NUEVO! ---
         // Mantenemos al monstruo apagado/dormido en el menú
         if (monster != null) monster.SetActive(false);
-        // ----------------
-
+        
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
     }
@@ -274,7 +341,7 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    // --- AJUSTES ---
+    // --- AJUSTES AUDIO / PANTALLA ---
 
     public void SetVolume(float volume)
     {
@@ -323,6 +390,81 @@ public class GameManager : MonoBehaviour
         {
             // Solo muestra el porcentaje
             brightnessText.text = Mathf.Round(brightness * 100) + "%";
+        }
+    }
+
+    // --- AJUSTES DE IA (LLAMADOS POR SLIDERS) ---
+
+    public void SetMonsterSpeed(float multiplier)
+    {
+        if (monsterAI != null)
+        {
+            monsterAI.SetMovementSpeedMultiplier(multiplier);
+        }
+        UpdateSpeedText(multiplier);
+    }
+
+    private void UpdateSpeedText(float multiplier)
+    {
+        if (speedText != null)
+        {
+            // Ejemplo: "1.5x"
+            speedText.text = multiplier.ToString("0.0") + "x";
+        }
+    }
+
+    public void SetMonsterVisionRange(float range)
+    {
+        if (monsterVision != null)
+        {
+            monsterVision.SetVisionRange(range);
+        }
+        UpdateVisionText(range);
+    }
+
+    private void UpdateVisionText(float range)
+    {
+        if (visionText != null)
+        {
+            // Ejemplo: "15 u" (unidades del mundo)
+            visionText.text = Mathf.Round(range).ToString("0") + " u";
+        }
+    }
+
+    public void SetMonsterHearingSensitivity(float value)
+    {
+        if (monsterHearing != null)
+        {
+            monsterHearing.SetHearingSensitivity(value);
+        }
+        UpdateHearingText(value);
+    }
+
+    private void UpdateHearingText(float value)
+    {
+        if (hearingText != null)
+        {
+            // Ejemplo: "150%"
+            float pct = value * 100f;
+            hearingText.text = Mathf.Round(pct).ToString("0") + "%";
+        }
+    }
+
+    public void SetMonsterReactionTime(float seconds)
+    {
+        if (monsterAI != null)
+        {
+            monsterAI.SetReactionTime(seconds);
+        }
+        UpdateReactionText(seconds);
+    }
+
+    private void UpdateReactionText(float seconds)
+    {
+        if (reactionText != null)
+        {
+            // Ejemplo: "0.50 s"
+            reactionText.text = seconds.ToString("0.00") + " s";
         }
     }
 }
