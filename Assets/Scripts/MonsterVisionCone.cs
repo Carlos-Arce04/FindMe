@@ -1,114 +1,173 @@
 using UnityEngine;
-using UnityEditor;
 
 public class MonsterVisionCone : MonoBehaviour
 {
     [Header("Vision Settings")]
-    public float visionRange = 10f; // Rango de la visión en metros
-    [Range(0, 360)]
-    public float visionAngle = 90f; // Ángulo de la visión en grados
+    [Tooltip("Rango de visión en unidades del mundo.")]
+    [SerializeField] private float visionRange = 10f;
+
+    [Tooltip("Ángulo de visión en grados (0 - 360).")]
+    [Range(0f, 360f)]
+    [SerializeField] private float visionAngle = 90f;
 
     [Header("Target & Obstacle Layers")]
-    public LayerMask targetLayer;   // La capa donde se encuentra el jugador/objetivo
-    public LayerMask obstacleLayer; // La capa para los obstáculos (paredes, etc.)
+    [Tooltip("Capa donde está el jugador u otros objetivos.")]
+    [SerializeField] private LayerMask targetLayer;
 
-    [Header("Detection Status")]
-    public bool canSeeTarget = false; // Para saber si el monstruo ve al objetivo
+    [Tooltip("Capa de obstáculos que bloquean la visión (paredes, etc.).")]
+    [SerializeField] private LayerMask obstacleLayer;
 
-    private Transform targetFound; // Referencia al objetivo encontrado
+    [Header("Estado de detección (solo lectura)")]
+    [SerializeField] private bool canSeeTarget = false;
+    [SerializeField] private Transform currentTarget;
 
-    void Update()
+    [Header("Referencia al MonsterAI")]
+    [Tooltip("Referencia al script MonsterAI que controlará la IA.")]
+    [SerializeField] private MonsterAI monsterAI;
+
+    // Propiedad para que el menú pueda leer el rango actual
+    public float VisionRange => visionRange;
+
+    // ---- MÉTODOS DE CONFIGURACIÓN DESDE MENÚ ----
+
+    /// <summary>
+    /// Cambia el rango de visión. Llamado desde el menú.
+    /// </summary>
+    public void SetVisionRange(float value)
     {
-        FindVisibleTargets();
+        visionRange = Mathf.Max(0f, value);
     }
 
-    void FindVisibleTargets()
+    // ---- CICLO DE VIDA ----
+
+    private void Awake()
     {
-        // Reseteamos el estado cada frame
-        canSeeTarget = false;
-        targetFound = null;
-
-        // 1. Encontrar colliders del objetivo dentro de una esfera (primer filtro de distancia)
-        Collider[] targetsInViewRadius = Physics.OverlapSphere(transform.position, visionRange, targetLayer);
-
-        for (int i = 0; i < targetsInViewRadius.Length; i++)
+        // Si no se asignó por Inspector, intenta buscar en el mismo GameObject o padres.
+        if (!monsterAI)
         {
-            Transform target = targetsInViewRadius[i].transform;
-            Vector3 directionToTarget = (target.position - transform.position).normalized;
+            monsterAI = GetComponent<MonsterAI>();
+            if (!monsterAI)
+                monsterAI = GetComponentInParent<MonsterAI>();
+        }
+    }
 
-            // 2. Comprobar si el objetivo está dentro del ángulo de visión
-            if (Vector3.Angle(transform.forward, directionToTarget) < visionAngle / 2)
+    private void Update()
+    {
+        DetectTargets();
+    }
+
+    // ---- LÓGICA DE DETECCIÓN ----
+
+    private void DetectTargets()
+    {
+        bool sawTargetThisFrame = false;
+        Transform bestTarget = null;
+
+        // Buscar posibles objetivos en un radio
+        Collider[] hits = Physics.OverlapSphere(transform.position, visionRange, targetLayer);
+
+        float closestDistance = Mathf.Infinity;
+
+        foreach (Collider col in hits)
+        {
+            Transform candidate = col.transform;
+            Vector3 dirToTarget = (candidate.position - transform.position).normalized;
+            float distanceToTarget = Vector3.Distance(transform.position, candidate.position);
+
+            // Comprobar ángulo
+            float angleToTarget = Vector3.Angle(transform.forward, dirToTarget);
+            if (angleToTarget > visionAngle * 0.5f)
+                continue;
+
+            // Comprobar línea de visión (raycast contra obstáculos)
+            if (Physics.Raycast(transform.position, dirToTarget, out RaycastHit hitInfo, distanceToTarget, obstacleLayer))
             {
-                float distanceToTarget = Vector3.Distance(transform.position, target.position);
+                // Hay un obstáculo entre medio
+                continue;
+            }
 
-                // 3. Comprobar si no hay obstáculos en la línea de visión con un Raycast
-                if (!Physics.Raycast(transform.position, directionToTarget, distanceToTarget, obstacleLayer))
+            // Si llega aquí, el objetivo es visible
+            if (distanceToTarget < closestDistance)
+            {
+                closestDistance = distanceToTarget;
+                bestTarget = candidate;
+            }
+        }
+
+        if (bestTarget != null)
+        {
+            sawTargetThisFrame = true;
+        }
+
+        // Cambios de estado de visión
+        if (sawTargetThisFrame)
+        {
+            if (!canSeeTarget || currentTarget != bestTarget)
+            {
+                // Recién vio al jugador o cambió de objetivo
+                currentTarget = bestTarget;
+                canSeeTarget = true;
+
+                if (monsterAI && currentTarget != null)
                 {
-                    // ¡Objetivo detectado!
-                    canSeeTarget = true;
-                    targetFound = target;
-                    Debug.Log("¡He visto a " + target.name + "!");
-                    // Aquí podrías llamar a otras funciones (perseguir, atacar, etc.)
-                    break; // Salimos del bucle si ya encontramos un objetivo
+                    monsterAI.OnSeePlayer(currentTarget);
                 }
+            }
+        }
+        else
+        {
+            if (canSeeTarget)
+            {
+                // Dejó de ver al jugador
+                canSeeTarget = false;
+
+                if (monsterAI)
+                {
+                    monsterAI.OnLosePlayer();
+                }
+
+                currentTarget = null;
             }
         }
     }
 
-    // --- Editor Visuals ---
-    #if UNITY_EDITOR
-    private void OnDrawGizmos()
+    // ---- GIZMOS PARA VER EL CONO EN LA ESCENA ----
+
+#if UNITY_EDITOR
+    private void OnDrawGizmosSelected()
     {
-        // --- MODIFICADO: El color ahora es siempre amarillo ---
-        Color gizmoColor = Color.yellow; 
-        Handles.color = gizmoColor;
-        Gizmos.color = gizmoColor;
+        // Círculo de rango
+        Gizmos.color = new Color(1f, 1f, 0f, 0.2f); // amarillo transparente
+        Gizmos.DrawWireSphere(transform.position, visionRange);
 
-        // --- Visualización del Rango General ---
-        Handles.color = new Color(gizmoColor.r, gizmoColor.g, gizmoColor.b, 0.1f);
-        Handles.DrawSolidDisc(transform.position, Vector3.up, visionRange);
+        // Líneas del cono
+        Gizmos.color = Color.yellow;
+        Vector3 leftBoundary = DirectionFromAngle(-visionAngle / 2f, true);
+        Vector3 rightBoundary = DirectionFromAngle(visionAngle / 2f, true);
 
+        Gizmos.DrawLine(transform.position, transform.position + leftBoundary * visionRange);
+        Gizmos.DrawLine(transform.position, transform.position + rightBoundary * visionRange);
 
-        // --- Visualización del Cono 3D ---
-        Quaternion upRayRotation = Quaternion.AngleAxis(-visionAngle / 2, transform.right);
-        Quaternion downRayRotation = Quaternion.AngleAxis(visionAngle / 2, transform.right);
-        Quaternion leftRayRotation = Quaternion.AngleAxis(-visionAngle / 2, transform.up);
-        Quaternion rightRayRotation = Quaternion.AngleAxis(visionAngle / 2, transform.up);
-
-        Vector3 upDir = upRayRotation * transform.forward;
-        Vector3 downDir = downRayRotation * transform.forward;
-        Vector3 leftDir = leftRayRotation * transform.forward;
-        Vector3 rightDir = rightRayRotation * transform.forward;
-        
-        // Se reestablece el color principal para las líneas
-        Gizmos.color = gizmoColor;
-        Gizmos.DrawRay(transform.position, upDir * visionRange);
-        Gizmos.DrawRay(transform.position, downDir * visionRange);
-        Gizmos.DrawRay(transform.position, leftDir * visionRange);
-        Gizmos.DrawRay(transform.position, rightDir * visionRange);
-
-        // Dibuja el arco en el suelo para una referencia horizontal clara
-        Handles.color = new Color(gizmoColor.r, gizmoColor.g, gizmoColor.b, 0.2f);
-        Vector3 horizontalBaseAngle = DirectionFromAngle(-visionAngle / 2, false);
-        Handles.DrawSolidArc(transform.position, Vector3.up, horizontalBaseAngle, visionAngle, visionRange);
-
-        // Dibuja una línea directa hacia el objetivo si es detectado
-        if (canSeeTarget && targetFound != null)
+        // Si ve un objetivo, dibuja una línea
+        if (canSeeTarget && currentTarget != null)
         {
-            // --- MODIFICADO: La línea ahora usa el color base (amarillo) ---
-            Gizmos.color = gizmoColor; 
-            Gizmos.DrawLine(transform.position, targetFound.position);
+            Gizmos.color = Color.red;
+            Gizmos.DrawLine(transform.position, currentTarget.position);
         }
     }
 
-    // Función auxiliar para calcular la dirección a partir de un ángulo (solo para el arco horizontal)
+    /// <summary>
+    /// Convierte un ángulo en una dirección (solo en el plano XZ).
+    /// </summary>
     private Vector3 DirectionFromAngle(float angleInDegrees, bool angleIsGlobal)
     {
         if (!angleIsGlobal)
         {
             angleInDegrees += transform.eulerAngles.y;
         }
-        return new Vector3(Mathf.Sin(angleInDegrees * Mathf.Deg2Rad), 0, Mathf.Cos(angleInDegrees * Mathf.Deg2Rad));
+
+        float rad = angleInDegrees * Mathf.Deg2Rad;
+        return new Vector3(Mathf.Sin(rad), 0f, Mathf.Cos(rad));
     }
-    #endif
+#endif
 }
