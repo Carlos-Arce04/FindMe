@@ -1,12 +1,13 @@
-// KeyInteraction.cs (Actualizado para sonido centralizado)
+// KeyInteraction.cs (Llaves + muñeco + sonido + progreso)
 using UnityEngine;
 using TMPro;
 
 public class KeyInteraction : MonoBehaviour
 {
+    [Header("Interacción")]
     public float interactionDistance = 3f;
     public KeyCode interactionKey = KeyCode.E;
-    
+
     [Tooltip("Recomendable grosor de 0.5.")]
     public float interactionRadius = 0.5f;
 
@@ -38,42 +39,65 @@ public class KeyInteraction : MonoBehaviour
     void Update()
     {
         RaycastHit hit;
-        
+
         bool successfulHit = Physics.SphereCast(
-            playerCamera.transform.position, 
-            interactionRadius, 
-            playerCamera.transform.forward, 
-            out hit, 
+            playerCamera.transform.position,
+            interactionRadius,
+            playerCamera.transform.forward,
+            out hit,
             interactionDistance
         );
 
-        if (successfulHit && hit.collider.CompareTag("Key"))
+        if (!successfulHit)
         {
             if (pickupPromptText != null)
-            {
-                pickupPromptText.gameObject.SetActive(true);
-            }
+                pickupPromptText.gameObject.SetActive(false);
 
-            if (Input.GetKeyDown(interactionKey))
+            return;
+        }
+
+        bool isKey  = hit.collider.CompareTag("Key");
+        bool isDoll = hit.collider.CompareTag("Doll");
+
+        // Mostrar / ocultar el prompt según lo que se está mirando
+        if (pickupPromptText != null)
+            pickupPromptText.gameObject.SetActive(isKey || isDoll);
+
+        // Si no se presionó la tecla de interacción, salimos
+        if (!Input.GetKeyDown(interactionKey))
+            return;
+
+        // ================= RECOGER LLAVE =================
+        if (isKey)
+        {
+            KeyItem key = hit.collider.GetComponent<KeyItem>();
+
+            if (key != null && keyInventory != null && keyInventory.AddKey(key))
             {
-                KeyItem key = hit.collider.GetComponent<KeyItem>();
-                if (keyInventory.AddKey(key))
+                // Avisar al sistema de progreso
+                GameProgressManager.Instance?.RegisterKeyCollected();
+
+                // Sonido de recogida de llave
+                if (keyPickupSound != null)
                 {
-                    if (keyPickupSound != null)
-                    {
-                        AudioSource.PlayClipAtPoint(keyPickupSound, hit.transform.position, keyPickupVolume);
-                    }
-
-                    Destroy(hit.collider.gameObject);
+                    AudioSource.PlayClipAtPoint(
+                        keyPickupSound,
+                        hit.transform.position,
+                        keyPickupVolume
+                    );
                 }
+
+                Destroy(hit.collider.gameObject);
             }
         }
-        else
+        // ================= RECOGER MUÑECO =================
+        else if (isDoll)
         {
-            if (pickupPromptText != null)
-            {
-                pickupPromptText.gameObject.SetActive(false);
-            }
+            // Avisar al sistema de progreso que tomamos el muñeco
+            GameProgressManager.Instance?.RegisterPorcelainDollCollected();
+
+            // Si luego quieres inventario visual, lo puedes agregar aquí
+            Destroy(hit.collider.gameObject);
         }
     }
 }
