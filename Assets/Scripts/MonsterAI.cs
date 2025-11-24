@@ -38,21 +38,6 @@ public class MonsterAI : MonoBehaviour
     [SerializeField] private float investigateDwellMax = 7f;
     [SerializeField] private bool useRandomInvestigateDwell = true;
 
-    [Header("Audio - Fuentes")]
-    [SerializeField] private AudioSource loopSource;   // respiración / música del estado
-    [SerializeField] private AudioSource sfxSource;    // pasos, gruñidos, rugidos
-
-    [Header("Audio - Loops por estado")]
-    [SerializeField] private AudioClip patrolLoop;       // respiración calmada / ambiente patrulla
-    [SerializeField] private AudioClip investigateLoop;  // gruñidos bajos / tensión moderada
-    [SerializeField] private AudioClip chaseLoop;        // música de tensión / respiración fuerte
-
-    [Header("Audio - SFX opcionales")]
-    [SerializeField] private AudioClip[] patrolFootsteps;    // pasos lentos y pesados
-    [SerializeField] private AudioClip[] chaseFootsteps;     // pasos rápidos
-    [SerializeField] private AudioClip[] investigateGrunts;  // gruñidos de curiosidad/alerta
-    [SerializeField] private AudioClip[] roarsOnChaseStart;  // rugidos al iniciar persecución
-
     // Internos
     private NavMeshAgent agent;
     private Animator animator;
@@ -88,7 +73,6 @@ public class MonsterAI : MonoBehaviour
 
     void Update()
     {
-        // Actualizar animaciones de movimiento
         if (animator && agent != null)
         {
             float speed = agent.velocity.magnitude;
@@ -96,7 +80,6 @@ public class MonsterAI : MonoBehaviour
             animator.SetFloat(HashSpeed, speed);
         }
 
-        // FSM principal
         switch (currentState)
         {
             case State.PATRULLANDO:   UpdatePatrol();      break;
@@ -118,9 +101,6 @@ public class MonsterAI : MonoBehaviour
 
         agent.isStopped = false;
         agent.speed = patrolSpeed;
-
-        // Audio: respiración calmada / pasos lentos
-        PlayStateLoop(patrolLoop);
 
         if (pickNewPoint)
         {
@@ -145,7 +125,6 @@ public class MonsterAI : MonoBehaviour
             return;
         }
 
-        // ¿Llegó al punto de patrulla?
         if (agent.remainingDistance <= arrivalThreshold)
         {
             StartPatrolDwell();
@@ -156,7 +135,6 @@ public class MonsterAI : MonoBehaviour
     {
         isPatrolDwell = true;
         dwellTimer = Random.Range(dwellTimeMin, dwellTimeMax);
-
         if (agent && agent.isOnNavMesh)
         {
             agent.isStopped = true;
@@ -202,11 +180,7 @@ public class MonsterAI : MonoBehaviour
         else
         {
             Vector2 rnd = Random.insideUnitCircle * fallbackRadius;
-            Vector3 candidate = new Vector3(
-                startAnchor.x + rnd.x,
-                startAnchor.y,
-                startAnchor.z + rnd.y
-            );
+            Vector3 candidate = new Vector3(startAnchor.x + rnd.x, startAnchor.y, startAnchor.z + rnd.y);
             return ProjectToNavMesh(candidate, maxSampleDistance);
         }
     }
@@ -284,9 +258,6 @@ public class MonsterAI : MonoBehaviour
         agent.isStopped = false;
         agent.speed = investigateSpeed;
 
-        // Audio: gruñidos bajos, tensión moderada
-        PlayStateLoop(investigateLoop);
-
         Vector3 dest = ProjectToNavMesh(locationToInvestigate, maxSampleDistance);
         SafeSetDestination(dest);
     }
@@ -295,7 +266,7 @@ public class MonsterAI : MonoBehaviour
     public void OnHearNoise(Vector3 position) => GoToInvestigateState(position);
 
     // =======================
-    //       PERSECUCIÓN
+    //       PERSECUCIÓN (opcional)
     // =======================
     private void UpdateChase()
     {
@@ -308,7 +279,8 @@ public class MonsterAI : MonoBehaviour
         }
         else
         {
-            // Si perdiste al jugador: ir a la última posición vista
+            // Si perdiste al jugador y quieres que vaya a la última pos vista y
+            // aplique la misma pausa de INVESTIGANDO:
             if (lastKnownTargetPos != Vector3.zero)
                 GoToInvestigateState(lastKnownTargetPos);
             else
@@ -328,10 +300,6 @@ public class MonsterAI : MonoBehaviour
         agent.isStopped = false;
         agent.speed = chaseSpeed;
 
-        // Audio: rugido + loop de persecución
-        PlayStateLoop(chaseLoop);
-        PlayRandomSFX(roarsOnChaseStart, 1.0f);
-
         if (target) SafeSetDestination(target.position);
     }
 
@@ -344,88 +312,11 @@ public class MonsterAI : MonoBehaviour
         // Deja que UpdateChase() redirija a INVESTIGANDO en la última posición
     }
 
-    // =======================
-    //          AUDIO
-    // =======================
-    #region Audio
-
-    private void PlayStateLoop(AudioClip clip)
-    {
-        if (!loopSource) return;
-
-        // Sin clip => detener loop actual
-        if (clip == null)
-        {
-            if (loopSource.isPlaying)
-            {
-                loopSource.Stop();
-                loopSource.clip = null;
-            }
-            return;
-        }
-
-        // Si ya está sonando ese mismo clip, no hacer nada
-        if (loopSource.clip == clip && loopSource.isPlaying) return;
-
-        loopSource.clip = clip;
-        loopSource.loop = true;
-        loopSource.Play();
-    }
-
-    private void StopStateLoop()
-    {
-        if (!loopSource) return;
-        loopSource.Stop();
-        loopSource.clip = null;
-    }
-
-    private void PlayRandomSFX(AudioClip[] clips, float volume = 1f)
-    {
-        if (!sfxSource || clips == null || clips.Length == 0) return;
-
-        int index = Random.Range(0, clips.Length);
-        AudioClip clip = clips[index];
-        if (!clip) return;
-
-        sfxSource.pitch = Random.Range(0.95f, 1.05f);
-        sfxSource.PlayOneShot(clip, volume);
-    }
-
-    /// <summary>
-    /// Llamar desde eventos de animación de pie (caminar/correr).
-    /// </summary>
-    public void OnFootstep()
-    {
-        switch (currentState)
-        {
-            case State.PATRULLANDO:
-                PlayRandomSFX(patrolFootsteps, 0.7f); // pasos lentos
-                break;
-            case State.PERSIGUIENDO:
-                PlayRandomSFX(chaseFootsteps, 0.9f);  // pasos rápidos
-                break;
-        }
-    }
-
-    /// <summary>
-    /// Llamar desde la animación de "buscando / investigando".
-    /// </summary>
-    public void OnInvestigateGrunt()
-    {
-        if (currentState == State.INVESTIGANDO)
-        {
-            PlayRandomSFX(investigateGrunts, 0.8f);
-        }
-    }
-
-    #endregion
-
 #if UNITY_EDITOR
     // Gizmos para depurar el área de patrulla
     void OnDrawGizmosSelected()
     {
         Gizmos.color = Color.cyan;
-
         if (patrolArea != null)
         {
             Matrix4x4 old = Gizmos.matrix;
