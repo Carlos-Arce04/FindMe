@@ -1,15 +1,8 @@
 fileFormatVersion: 2
-guid: 30fb6719a9eb1d84a807a42d598b16f8
+guid: e042c8438454f584896c3fa3a467e03c
 timeCreated: 1500385967
 licenseType: Store
 DefaultImporter:
   userData: 
   assetBundleName: 
   assetBundleVariant: 
-AssetOrigin:
-  serializedVersion: 1
-  productId: 49137
-  packageName: Abandoned Asylum
-  packageVersion: 1.4
-  assetPath: Assets/Abandoned_Asylum/Show.unity
-  uploadId: 380667
