@@ -42,7 +42,8 @@ public class HideUnderTable : MonoBehaviour
 
     void Update()
     {
-        if (Vector3.Distance(playerRoot.position, table.position) <= interactDistance && Input.GetKeyDown(KeyCode.E))
+        // ⭐ CAMBIO DE KEYCODE.E A KEYCODE.F ⭐
+        if (Vector3.Distance(playerRoot.position, table.position) <= interactDistance && Input.GetKeyDown(KeyCode.F))
         {
             ToggleHide();
         }
