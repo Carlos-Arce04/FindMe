@@ -12,34 +12,46 @@ public class BatterySpawnerArea : MonoBehaviour
     public LayerMask groundMask;
 
     [Header("Control")]
+    [Tooltip("Máximo de baterías que se pueden colocar en el área")]
     public int maxBatteriesInScene = 6;
-    public float spawnInterval = 15f;
+
+    [Tooltip("Máximos intentos por cada batería a colocar")]
     public int maxTriesPerSpawn = 15;
+
+    [Tooltip("Distancia mínima entre baterías")]
     public float minDistanceBetweenBatteries = 0.6f;
 
     [Header("Opciones")]
     public bool randomYRotation = true;
     public float heightOffset = 0.02f;
 
-    float timer;
     readonly List<GameObject> spawned = new();
 
-    void Update()
+    void Start()
     {
-        spawned.RemoveAll(g => g == null);
+        int targetCount = Mathf.Clamp(
+            Random.Range(1, maxBatteriesInScene + 1),
+            1,
+            maxBatteriesInScene
+        );
 
-        timer += Time.deltaTime;
-        if (timer >= spawnInterval)
+        for (int i = 0; i < targetCount; i++)
         {
-            timer = 0f;
-            TrySpawn();
+            bool success = TrySpawnOne();
+            if (!success)
+            {
+                break;
+            }
         }
     }
 
-    void TrySpawn()
+    bool TrySpawnOne()
     {
-        if (!batteryPickupPrefab) return;
-        if (spawned.Count >= maxBatteriesInScene) return;
+        if (!batteryPickupPrefab) return false;
+
+        spawned.RemoveAll(g => g == null);
+
+        if (spawned.Count >= maxBatteriesInScene) return false;
 
         for (int i = 0; i < maxTriesPerSpawn; i++)
         {
@@ -56,21 +68,31 @@ public class BatterySpawnerArea : MonoBehaviour
                 bool occupied = false;
                 foreach (var g in spawned)
                 {
-                    if (g && (g.transform.position - hit.point).sqrMagnitude < (minDistanceBetweenBatteries * minDistanceBetweenBatteries))
-                    { occupied = true; break; }
+                    if (!g) continue;
+
+                    if ((g.transform.position - hit.point).sqrMagnitude <
+                        (minDistanceBetweenBatteries * minDistanceBetweenBatteries))
+                    {
+                        occupied = true;
+                        break;
+                    }
                 }
                 if (occupied) continue;
 
-                Quaternion rot = randomYRotation ? Quaternion.Euler(0f, UnityEngine.Random.Range(0f, 360f), 0f)
-                                                 : Quaternion.identity;
+                Quaternion rot = randomYRotation
+                    ? Quaternion.Euler(0f, UnityEngine.Random.Range(0f, 360f), 0f)
+                    : Quaternion.identity;
 
                 Vector3 pos = hit.point + Vector3.up * heightOffset;
 
-                var go = Instantiate(batteryPickupPrefab, pos, rot);
+                var go = Object.Instantiate(batteryPickupPrefab, pos, rot);
                 spawned.Add(go);
-                break;
+
+                return true;
             }
         }
+
+        return false;
     }
 
     void OnDrawGizmosSelected()
