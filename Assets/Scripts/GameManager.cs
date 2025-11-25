@@ -114,13 +114,14 @@ public class GameManager : MonoBehaviour
             ShowMainMenu();
 
             // --- TRUCO DE PRE-CARGA DE VIDEO ---
+            // Si estamos en el menú, preparamos el video en segundo plano
             if (videoPlayer != null)
             {
                 // El objeto debe estar activo para que el VideoPlayer prepare el clip
                 videoScreen.SetActive(true); 
                 // Pero la imagen RawImage debe estar desactivada para que no se vea en el menú
                 if (videoRawImage != null) videoRawImage.enabled = false;
-                videoPlayer.Prepare();
+                videoPlayer.Prepare(); // ¡Cargando en memoria!
             }
             // ------------------------------------------------
         }
@@ -145,7 +146,6 @@ public class GameManager : MonoBehaviour
         if (speedSlider != null && monsterAI != null)
         {
             speedSlider.onValueChanged.AddListener(SetMonsterSpeed);
-            // Asumiendo que esta propiedad existe en MonsterAI
             speedSlider.value = monsterAI.MovementSpeedMultiplier; 
             UpdateSpeedText(speedSlider.value);
         }
@@ -153,7 +153,6 @@ public class GameManager : MonoBehaviour
         if (visionSlider != null && monsterVision != null)
         {
             visionSlider.onValueChanged.AddListener(SetMonsterVisionRange);
-            // Asumiendo que esta propiedad existe en MonsterVisionCone
             visionSlider.value = monsterVision.VisionRange; 
             UpdateVisionText(visionSlider.value);
         }
@@ -161,7 +160,6 @@ public class GameManager : MonoBehaviour
         if (hearingSlider != null && monsterHearing != null)
         {
             hearingSlider.onValueChanged.AddListener(SetMonsterHearingSensitivity);
-            // Asumiendo que esta propiedad existe en MonsterHearing
             hearingSlider.value = monsterHearing.HearingSensitivity; 
             UpdateHearingText(hearingSlider.value);
         }
@@ -169,7 +167,6 @@ public class GameManager : MonoBehaviour
         if (reactionSlider != null && monsterAI != null)
         {
             reactionSlider.onValueChanged.AddListener(SetMonsterReactionTime);
-            // Asumiendo que esta propiedad existe en MonsterAI
             reactionSlider.value = monsterAI.ReactionTime; 
             UpdateReactionText(reactionSlider.value);
         }
@@ -205,8 +202,9 @@ public class GameManager : MonoBehaviour
         {
             if (menuBackground != null) menuBackground.SetActive(false);
             
-            videoScreen.SetActive(true);
-            if (videoRawImage != null) videoRawImage.enabled = true; // ¡Mostramos la imagen del video!
+            // Como ya hicimos Prepare() en el Start, esto debería ser instantáneo
+            videoScreen.SetActive(true); 
+            if (videoRawImage != null) videoRawImage.enabled = true; // ¡Mostramos la imagen ahora!
             
             videoPlayer.loopPointReached += OnVideoFinished;
             videoPlayer.Play();
@@ -342,7 +340,8 @@ public class GameManager : MonoBehaviour
         if (menuBackground != null) menuBackground.SetActive(true);
         
         // --- LÓGICA DE TU VIDEO (asegura que el video esté oculto pero activo para pre-carga) ---
-        if (videoScreen != null)
+        // En el menú, aseguramos que el video esté oculto, pero el objeto activo para cargar
+        if (videoScreen != null) 
         {
             videoScreen.SetActive(true); // Objeto ON
             if (videoRawImage != null) videoRawImage.enabled = false; // Imagen OFF (Oculto)
